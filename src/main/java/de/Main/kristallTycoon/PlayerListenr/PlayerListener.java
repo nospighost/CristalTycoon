@@ -27,7 +27,7 @@ import static org.bukkit.enchantments.Enchantment.LOYALTY;
 public class PlayerListener implements Listener {
 
     private final JavaPlugin plugin;
-    private static  FileConfiguration growthConfig;
+    private static FileConfiguration growthConfig;
     private static File growthFile;
 
     // Hier speichern wir die Block-Locations für Spieler, die gerade das Upgrade-Menü offen haben
@@ -35,8 +35,42 @@ public class PlayerListener implements Listener {
 
     public PlayerListener(JavaPlugin plugin, FileConfiguration growthConfig, File growthFile) {
         this.plugin = plugin;
-        this.growthConfig = growthConfig;
+        PlayerListener.growthConfig = growthConfig;
         PlayerListener.growthFile = growthFile;
+
+        // Scheduler für Belohnungen alle 5 Minuten starten
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (hasLevel10Crystal(player.getUniqueId())) {
+                        KristallTycoon.eco.depositPlayer(player, 100);
+                        player.sendMessage("§aDu hast 100 Dollar für deinen Level 10 Kristall erhalten!");
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 20L * 60 * 5); // 5 Minuten in Ticks
+    }
+
+    // Prüft, ob der Spieler mindestens einen Kristall mit Level 10 besitzt
+    private boolean hasLevel10Crystal(UUID playerUUID) {
+        if (!growthConfig.isConfigurationSection("growth")) return false;
+
+        for (String world : growthConfig.getConfigurationSection("growth").getKeys(false)) {
+            if (!growthConfig.isConfigurationSection("growth." + world)) continue;
+
+            for (String coordKey : growthConfig.getConfigurationSection("growth." + world).getKeys(false)) {
+                String path = "growth." + world + "." + coordKey;
+
+                String ownerUUIDString = growthConfig.getString(path + ".owner");
+                int level = growthConfig.getInt(path + ".Level", 0);
+
+                if (ownerUUIDString != null && ownerUUIDString.equals(playerUUID.toString()) && level >= 9) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     // ----------------------------
@@ -262,6 +296,12 @@ public class PlayerListener implements Listener {
             return;
         }
 
+        Location location = block.getLocation();
+
+        String path = getPath(location);
+        int level = growthConfig.getInt(path + ".Level", 0);
+
+        // Falls Level 10 hier weitere Aktionen erwünscht sind, hier hinzufügen
 
         openUpgradeGUI(player, block.getLocation());
     }
