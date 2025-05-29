@@ -1,19 +1,16 @@
 package de.Main.kristallTycoon;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -21,7 +18,6 @@ import org.bukkit.scheduler.BukkitRunnable;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
-import java.util.logging.Level;
 
 import static org.bukkit.Material.*;
 import static org.bukkit.enchantments.Enchantment.EFFICIENCY;
@@ -29,25 +25,28 @@ import static org.bukkit.enchantments.Enchantment.LOYALTY;
 
 public class PlayerListener implements Listener {
 
-    private final HashMap<UUID, Integer> upgradeLevels = new HashMap<>();
-    public double price = 1000;
-
     private final JavaPlugin plugin;
-    private final FileConfiguration growthConfig;
-    private final File growthFile;
+    private static  FileConfiguration growthConfig;
+    private static File growthFile;
+
+    // Hier speichern wir die Block-Locations für Spieler, die gerade das Upgrade-Menü offen haben
+    private final Map<UUID, Location> upgradeOpenLocations = new HashMap<>();
 
     public PlayerListener(JavaPlugin plugin, FileConfiguration growthConfig, File growthFile) {
         this.plugin = plugin;
         this.growthConfig = growthConfig;
-        this.growthFile = growthFile;
+        PlayerListener.growthFile = growthFile;
     }
 
+    // ----------------------------
+    // Block Break: Kristall abbauen = Geld
+    // ----------------------------
     @EventHandler(ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
         Block block = event.getBlock();
         Material type = block.getType();
-        ItemStack handItem = player.getInventory().getItemInMainHand();
+        ItemStack tool = player.getInventory().getItemInMainHand();
         Location location = block.getLocation();
 
         if (type == SMALL_AMETHYST_BUD || type == MEDIUM_AMETHYST_BUD || type == LARGE_AMETHYST_BUD) {
@@ -56,9 +55,8 @@ public class PlayerListener implements Listener {
         }
 
         if (type == AMETHYST_CLUSTER) {
-            int effLevel = (handItem != null && handItem.hasItemMeta()) ? handItem.getEnchantmentLevel(EFFICIENCY) : 0;
-
-            if (effLevel < 1) {
+            int eff = (tool != null && tool.hasItemMeta()) ? tool.getEnchantmentLevel(EFFICIENCY) : 0;
+            if (eff < 1) {
                 event.setCancelled(true);
                 return;
             }
@@ -66,18 +64,23 @@ public class PlayerListener implements Listener {
             event.setCancelled(true);
             block.setType(SMALL_AMETHYST_BUD);
 
-            int upgradeLevel = upgradeLevels.getOrDefault(player.getUniqueId(), 1);
-            double payout = 2 + upgradeLevel;
+            String path = getPath(location);
+            int upgradeLevel = growthConfig.getInt(path + ".Level", 0);
+            double payout = 1 + upgradeLevel;
             KristallTycoon.eco.depositPlayer(player, payout);
+            player.sendMessage("§a+§e" + payout + "§a$ verdient!");
 
             long now = System.currentTimeMillis();
             saveGrowth(location, SMALL_AMETHYST_BUD.name(), now + getGrowthDelayMillis(SMALL_AMETHYST_BUD), player.getUniqueId());
             growToFinalStage(block, SMALL_AMETHYST_BUD, player.getUniqueId());
 
-            location.getWorld().dropItemNaturally(location, new ItemStack(STONE));
+            // Location.getWorld().dropItemNaturally(location, new ItemStack(AIR)); // Das droppt nix, also raus damit
         }
     }
 
+    // ----------------------------
+    // Block Place: Kristall anpflanzen
+    // ----------------------------
     @EventHandler(ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
         Player player = event.getPlayer();
@@ -85,9 +88,8 @@ public class PlayerListener implements Listener {
         ItemStack handItem = player.getInventory().getItemInMainHand();
 
         if (block.getType() == AMETHYST_CLUSTER) {
-            int loyaltyLevel = (handItem != null && handItem.hasItemMeta()) ? handItem.getEnchantmentLevel(LOYALTY) : 0;
-
-            if (loyaltyLevel < 5) {
+            int loyalty = (handItem != null && handItem.hasItemMeta()) ? handItem.getEnchantmentLevel(LOYALTY) : 0;
+            if (loyalty < 5) {
                 event.setCancelled(true);
                 return;
             }
@@ -98,12 +100,14 @@ public class PlayerListener implements Listener {
             block.setType(SMALL_AMETHYST_BUD);
             growToFinalStage(block, SMALL_AMETHYST_BUD, player.getUniqueId());
 
-            player.sendMessage("§aKristall erfolgreich platziert. Wachstum gestartet.");
+            player.sendMessage("§aKristall erfolgreich gepflanzt. Wachstum gestartet.");
         }
     }
 
-    private void growToFinalStage(Block block, Material start, UUID owner) {
-        Material current = start;
+    // ----------------------------
+    // Wachstum durch Phasen
+    // ----------------------------
+    private void growToFinalStage(Block block, Material current, UUID owner) {
         while (current != AMETHYST_CLUSTER) {
             Material next = getNextStage(current);
             if (next == null) break;
@@ -112,8 +116,8 @@ public class PlayerListener implements Listener {
         }
     }
 
-    private Material getNextStage(Material current) {
-        switch (current) {
+    private static Material getNextStage(Material mat) {
+        switch (mat) {
             case SMALL_AMETHYST_BUD: return MEDIUM_AMETHYST_BUD;
             case MEDIUM_AMETHYST_BUD: return LARGE_AMETHYST_BUD;
             case LARGE_AMETHYST_BUD: return AMETHYST_CLUSTER;
@@ -121,34 +125,30 @@ public class PlayerListener implements Listener {
         }
     }
 
-    private void scheduleGrowthTask(Block block, Material from, Material to, int delaySeconds, UUID owner) {
-        if (delaySeconds <= 0) return;
-
+    private void scheduleGrowthTask(Block block, Material from, Material to, int delay, UUID owner) {
         new BukkitRunnable() {
             @Override
             public void run() {
                 if (block.getType() == from) {
                     block.setType(to);
                     Location loc = block.getLocation();
-
-                    boolean isFullyGrown = (to == AMETHYST_CLUSTER);
-                    long nextGrowth = isFullyGrown ? 0 : System.currentTimeMillis() + getGrowthDelayMillis(to);
-                    saveGrowth(loc, to.name(), nextGrowth, owner);
+                    long next = (to == AMETHYST_CLUSTER) ? 0 : System.currentTimeMillis() + getGrowthDelayMillis(to);
+                    saveGrowth(loc, to.name(), next, owner);
                 }
             }
-        }.runTaskLater(plugin, delaySeconds * 20L);
+        }.runTaskLater(plugin, delay * 20L);
     }
 
-    private void saveGrowth(Location loc, String stage, long nextGrowthMillis, UUID owner) {
+    private static void saveGrowth(Location loc, String stage, long nextGrowthMillis, UUID owner) {
         String path = getPath(loc);
         growthConfig.set(path + ".stage", stage);
         growthConfig.set(path + ".nextGrowth", nextGrowthMillis);
         growthConfig.set(path + ".owner", owner != null ? owner.toString() : null);
-        growthConfig.set(path + ".world", loc.getWorld().getName());
-        growthConfig.set(path + ".x", loc.getBlockX());
-        growthConfig.set(path + ".y", loc.getBlockY());
-        growthConfig.set(path + ".z", loc.getBlockZ());
         growthConfig.set(path + ".isFullyGrown", stage.equals(AMETHYST_CLUSTER.name()));
+
+        if (!growthConfig.contains(path + ".Level")) {
+            growthConfig.set(path + ".Level", 0);
+        }
 
         try {
             growthConfig.save(growthFile);
@@ -157,73 +157,12 @@ public class PlayerListener implements Listener {
         }
     }
 
-    private String getPath(Location loc) {
+    private static String getPath(Location loc) {
+        // Hier anpassen auf x_y_z Format für deine Config
         return "growth." + loc.getWorld().getName() + "." + loc.getBlockX() + "_" + loc.getBlockY() + "_" + loc.getBlockZ();
     }
 
-    public static void startGrowthTasks(JavaPlugin plugin, FileConfiguration growthConfig) {
-        if (growthConfig == null || !growthConfig.isConfigurationSection("growth")) return;
-
-        for (String world : growthConfig.getConfigurationSection("growth").getKeys(false)) {
-            for (String key : growthConfig.getConfigurationSection("growth." + world).getKeys(false)) {
-                String path = "growth." + world + "." + key;
-                String[] coords = key.split("_");
-                if (coords.length != 3) continue;
-
-                int x, y, z;
-                try {
-                    x = Integer.parseInt(coords[0]);
-                    y = Integer.parseInt(coords[1]);
-                    z = Integer.parseInt(coords[2]);
-                } catch (NumberFormatException e) {
-                    continue;
-                }
-
-                Location loc = new Location(Bukkit.getWorld(world), x, y, z);
-                Block block = loc.getBlock();
-
-                Material from;
-                try {
-                    from = Material.valueOf(growthConfig.getString(path + ".stage", ""));
-                } catch (IllegalArgumentException e) {
-                    continue;
-                    //aaaa
-                }
-
-                Material to = new PlayerListener(plugin, growthConfig, null).getNextStage(from);
-                if (to == null) continue;
-
-                long delayMillis = growthConfig.getLong(path + ".nextGrowth", 0) - System.currentTimeMillis();
-                delayMillis = Math.max(0, delayMillis);
-
-                new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                        if (block.getType() == from) {
-                            block.setType(to);
-                            if (to == AMETHYST_CLUSTER) {
-                                growthConfig.set(path + ".isFullyGrown", true);
-                                growthConfig.set(path + ".stage", to.name());
-                                growthConfig.set(path + ".nextGrowth", 0);
-                            } else {
-                                growthConfig.set(path + ".stage", to.name());
-                                growthConfig.set(path + ".nextGrowth", System.currentTimeMillis() + getGrowthDelayMillis(to));
-                                growthConfig.set(path + ".isFullyGrown", false);
-                            }
-
-                            try {
-                                growthConfig.save(new File(plugin.getDataFolder(), "growth/growth.yml"));
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-                }.runTaskLater(plugin, delayMillis / 50L);
-            }
-        }
-    }
-
-    private static int getGrowthTimeSeconds(Material stage) { //aa
+    private static int getGrowthTimeSeconds(Material stage) {
         switch (stage) {
             case SMALL_AMETHYST_BUD: return 3;
             case MEDIUM_AMETHYST_BUD: return 5;
@@ -236,57 +175,79 @@ public class PlayerListener implements Listener {
         return getGrowthTimeSeconds(stage) * 1000L;
     }
 
-    @EventHandler
-    public void onInventoryClick(org.bukkit.event.inventory.InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player)) return;
-
-        Player player = (Player) event.getWhoClicked();
-
-        if (event.getView().getTitle().equalsIgnoreCase("§bUpgrade-Menü")) {
-            event.setCancelled(true);
-
-            if (event.getCurrentItem() == null || event.getCurrentItem().getType() != Material.TOTEM_OF_UNDYING) return;
-
-            UUID uuid = player.getUniqueId();
-            Location loc = player.getLocation();
-
-            growthConfig.get("growth." + loc.getWorld() + loc.getBlockX() + "_" + loc.getBlockY() + "_" + loc.getBlockZ());
-            int currentLevel = upgradeLevels.getOrDefault(uuid, 0);
-            price = 1000 * Math.pow(2, currentLevel);
-
-            if (KristallTycoon.eco.getBalance(player) >= price) {
-                KristallTycoon.eco.withdrawPlayer(player, price);
-                upgradeLevels.put(uuid, currentLevel + 1);
-                player.sendMessage("§aUpgrade erfolgreich! Du erhältst jetzt §e" + (currentLevel + 2) + "§a$ pro Kristall.");
-            } else {
-                player.sendMessage("§cDu hast nicht genug Geld. Preis: §e" + price + "$");
-            }
-
-            player.closeInventory();
-        }
-    }
-
-    public void openUpgradeGUI(Player player) {
+    // ----------------------------
+    // Upgrade-Menü öffnen
+    // ----------------------------
+    public void openUpgradeGUI(Player player, Location blockLocation) {
         Inventory gui = Bukkit.createInventory(null, 9, "§bUpgrade-Menü");
+
+        String path = getPath(blockLocation);
+        int level = growthConfig.getInt(path + ".Level", 0);
+        double price = 1000 * Math.pow(2, level + 1);
+        int nextPayout = 1 + level + 1;
 
         ItemStack upgrade = new ItemStack(Material.TOTEM_OF_UNDYING);
         ItemMeta meta = upgrade.getItemMeta();
-        meta.setDisplayName("§aGeld Upgrade");
+
+        meta.setDisplayName("§aKristall-Upgrade");
         List<String> lore = new ArrayList<>();
-        lore.add("");
-        lore.add("§cZahle " + price);
-        lore.add("§bErhalte durch dieses Upgrade mehr Dollar pro Abbau!");
+        lore.add("§eAktuelles Level: §b" + level);
+        lore.add("§eNach dem Upgrade: §b" + (level + 1));
+        lore.add("§eKosten: §6" + price + "$");
+        lore.add("§aVerdienst danach: §e" + nextPayout + "$");
         meta.setLore(lore);
         upgrade.setItemMeta(meta);
 
         gui.setItem(4, upgrade);
 
+        // Location speichern, damit wir im InventoryClickEvent wissen, welcher Block upgegradet wird
+        upgradeOpenLocations.put(player.getUniqueId(), blockLocation);
+
         player.openInventory(gui);
     }
 
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) throws IOException {
+        if (!(event.getWhoClicked() instanceof Player)) return;
+        Player player = (Player) event.getWhoClicked();
+
+        if (event.getView().getTitle().equalsIgnoreCase("§bUpgrade-Menü")) {
+            event.setCancelled(true);
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked == null || clicked.getType() != Material.TOTEM_OF_UNDYING) return;
+
+            Location blockLoc = upgradeOpenLocations.get(player.getUniqueId());
+            if (blockLoc == null) {
+                player.sendMessage("§cFehler: Block-Location nicht gefunden.");
+                player.closeInventory();
+                return;
+            }
+
+            String path = getPath(blockLoc);
+            int level = growthConfig.getInt(path + ".Level", 0);
+            int newLevel = level + 1;
+            double price = 1000 * Math.pow(2, newLevel);
+
+            if (KristallTycoon.eco.getBalance(player) >= price) {
+                KristallTycoon.eco.withdrawPlayer(player, price);
+                growthConfig.set(path + ".Level", newLevel);
+                growthConfig.save(growthFile);
+                player.sendMessage("§aUpgrade erfolgreich! Neuer Verdienst: §e" + (1 + newLevel) + "§a$ pro Kristall.");
+            } else {
+                player.sendMessage("§cNicht genug Geld! Du brauchst §e" + price + "$");
+            }
+
+            upgradeOpenLocations.remove(player.getUniqueId());
+            player.closeInventory();
+        }
+    }
+
+    // ----------------------------
+    // Rechtsklick mit Sneaken = Menü öffnen
+    // ----------------------------
     @EventHandler(ignoreCancelled = true)
     public void onShiftRightClick(PlayerInteractEvent event) {
-        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        if (event.getAction() != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) return;
 
         Player player = event.getPlayer();
         if (!player.isSneaking()) return;
@@ -294,6 +255,57 @@ public class PlayerListener implements Listener {
         Block block = event.getClickedBlock();
         if (block == null || block.getType() != AMETHYST_CLUSTER) return;
 
-        openUpgradeGUI(player);
+        openUpgradeGUI(player, block.getLocation());
+    }
+
+    // ----------------------------
+    // Nach Server-Start geplante Wachstumsvorgänge starten
+    // ----------------------------
+    public static void startGrowthTasks(JavaPlugin plugin, FileConfiguration growthConfig) {
+        if (!growthConfig.isConfigurationSection("growth")) return;
+
+        for (String world : growthConfig.getConfigurationSection("growth").getKeys(false)) {
+            if (!growthConfig.isConfigurationSection("growth." + world)) continue;
+
+            for (String coordKey : growthConfig.getConfigurationSection("growth." + world).getKeys(false)) {
+                String path = "growth." + world + "." + coordKey;
+
+                try {
+                    String[] parts = coordKey.split("_");
+                    int x = Integer.parseInt(parts[0]);
+                    int y = Integer.parseInt(parts[1]);
+                    int z = Integer.parseInt(parts[2]);
+
+                    World w = Bukkit.getWorld(world);
+                    if (w == null) continue;
+
+                    Block block = w.getBlockAt(x, y, z);
+                    if (block.getType() == SMALL_AMETHYST_BUD || block.getType() == MEDIUM_AMETHYST_BUD || block.getType() == LARGE_AMETHYST_BUD) {
+                        long nextGrowth = growthConfig.getLong(path + ".nextGrowth", 0);
+                        if (nextGrowth == 0) continue;
+
+                        long delay = nextGrowth - System.currentTimeMillis();
+                        if (delay <= 0) delay = 0;
+
+                        Material current = Material.valueOf(growthConfig.getString(path + ".stage"));
+
+                        new BukkitRunnable() {
+                            @Override
+                            public void run() {
+                                if (block.getType() == current) {
+                                    Material next = getNextStage(current);
+                                    if (next != null) {
+                                        block.setType(next);
+                                        saveGrowth(block.getLocation(), next.name(), System.currentTimeMillis() + getGrowthDelayMillis(next), null);
+                                    }
+                                }
+                            }
+                        }.runTaskLater(plugin, delay / 50);
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }
     }
 }

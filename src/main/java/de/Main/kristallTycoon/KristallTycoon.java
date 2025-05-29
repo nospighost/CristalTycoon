@@ -12,8 +12,8 @@ public class KristallTycoon extends JavaPlugin {
 
     public static net.milkbowl.vault.economy.Economy eco;
 
-    private File growthFile;
-    private FileConfiguration growthConfig;
+    public static File growthFile;
+    public static FileConfiguration growthConfig;
 
     @Override
     public void onEnable() {
@@ -41,7 +41,6 @@ public class KristallTycoon extends JavaPlugin {
         if (!growthFile.getParentFile().exists()) {
             growthFile.getParentFile().mkdirs();
         }
-//aaa
         if (!growthFile.exists()) {
             try {
                 growthFile.createNewFile();
