@@ -149,6 +149,7 @@ public class PlayerListener implements Listener {
         growthConfig.set(path + ".y", loc.getBlockY());
         growthConfig.set(path + ".z", loc.getBlockZ());
         growthConfig.set(path + ".isFullyGrown", stage.equals(AMETHYST_CLUSTER.name()));
+        growthConfig.set(path + ".Level", 1);
 
         try {
             growthConfig.save(growthFile);
@@ -187,7 +188,7 @@ public class PlayerListener implements Listener {
                     from = Material.valueOf(growthConfig.getString(path + ".stage", ""));
                 } catch (IllegalArgumentException e) {
                     continue;
-                    //aaaa
+
                 }
 
                 Material to = new PlayerListener(plugin, growthConfig, null).getNextStage(from);
@@ -251,7 +252,7 @@ public class PlayerListener implements Listener {
             Location loc = player.getLocation();
 
             growthConfig.get("growth." + loc.getWorld() + loc.getBlockX() + "_" + loc.getBlockY() + "_" + loc.getBlockZ());
-            int currentLevel = upgradeLevels.getOrDefault(uuid, 0);
+            int currentLevel = upgradeLevels.getOrDefault(uuid, 1);
             price = 1000 * Math.pow(2, currentLevel);
 
             if (KristallTycoon.eco.getBalance(player) >= price) {

@@ -1,5 +1,10 @@
 package de.Main.kristallTycoon;
 
+import de.Main.kristallTycoon.WorldGen.VoidGen;
+import org.bukkit.Bukkit;
+import org.bukkit.World;
+import org.bukkit.WorldCreator;
+import org.bukkit.WorldType;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -14,18 +19,34 @@ public class KristallTycoon extends JavaPlugin {
 
     private File growthFile;
     private FileConfiguration growthConfig;
+    public static String WORLD_NAME = "Tycoon";
+    public static World tycoonWorld;
 
     @Override
     public void onEnable() {
         setupEconomy();
         setupGrowthFile();
 
-        //              <---------------- Listener----------------------->
+        // Void Gen für OneBlock-Welt
+        WorldCreator worldCreator = new WorldCreator(WORLD_NAME);
+        worldCreator.environment(World.Environment.NORMAL);
+        worldCreator.type(WorldType.FLAT);
+        worldCreator.generator(new VoidGen());
+        Bukkit.createWorld(worldCreator);
 
+        World tycoonWorld = Bukkit.createWorld(worldCreator);
+        if (tycoonWorld == null) {
+            getLogger().severe("Welt konnte nicht erstellt werden.");
+        } else {
+            getLogger().info("Welt wurde erstellt");
+        }
+
+        //<---------------- Listener----------------------->
+        Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(WORLD_NAME), this);
         getServer().getPluginManager().registerEvents(new PlayerListener(this, growthConfig, growthFile), this);
 
 
-        //              <---------------- Commands ----------------------->
+        //<---------------- Commands ----------------------->
 
         getServer().getPluginManager().registerEvents(new KristallGUI(), this);
         this.getCommand("kristallshop").setExecutor(new KristallGUI());
@@ -41,7 +62,6 @@ public class KristallTycoon extends JavaPlugin {
         if (!growthFile.getParentFile().exists()) {
             growthFile.getParentFile().mkdirs();
         }
-//aaa
         if (!growthFile.exists()) {
             try {
                 growthFile.createNewFile();
