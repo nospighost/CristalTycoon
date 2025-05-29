@@ -187,7 +187,7 @@ public class PlayerListener implements Listener {
                     from = Material.valueOf(growthConfig.getString(path + ".stage", ""));
                 } catch (IllegalArgumentException e) {
                     continue;
-                    //aaa
+                    //aaaa
                 }
 
                 Material to = new PlayerListener(plugin, growthConfig, null).getNextStage(from);

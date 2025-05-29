@@ -31,7 +31,7 @@ public class KristallGUI implements Listener, CommandExecutor {
         ItemMeta fillerMeta = filler.getItemMeta();
         if (fillerMeta != null) {
             fillerMeta.setDisplayName(" ");
-            filler.setItemMeta(fillerMeta); //aa
+            filler.setItemMeta(fillerMeta); //aaa
         }
         for (int i = 0; i < 9; i++) {
             BuyKristall.setItem(i, filler);
