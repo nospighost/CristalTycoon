@@ -33,7 +33,9 @@ public class IslandCommand implements CommandExecutor {
     }
 
     public static void createIsland(Player player) {
-        player.sendMessage("Deine Insel wird erstellt...");
+
+
+
 
     }
 
