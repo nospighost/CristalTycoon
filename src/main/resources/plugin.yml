@@ -6,3 +6,7 @@ commands:
   kristallshop:
     description: Öffnet den Kristall-Shop
     usage: /kristallshop
+  pickaxeshop:
+    description: Öffnet den Spitzhacken-Shop
+    usage: /pickaxeshop
+
