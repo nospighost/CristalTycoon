@@ -1,6 +1,8 @@
 package de.Main.kristallTycoon;
 
 import de.Main.kristallTycoon.GUI.KristallGUI;
+import de.Main.kristallTycoon.GUI.PickaxeShop.EnchantGUI;
+import de.Main.kristallTycoon.GUI.PickaxeShop.PickaxeShop;
 import de.Main.kristallTycoon.PlayerListenr.PlayerJoinListener;
 import de.Main.kristallTycoon.PlayerListenr.PlayerListener;
 import de.Main.kristallTycoon.WorldGen.VoidGen;
@@ -50,10 +52,20 @@ public class KristallTycoon extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PlayerListener(this, growthConfig, growthFile), this);
 
 
+
+
         //<---------------- Commands ----------------------->
-        getCommand("Island").setExecutor(new IslandCommand());
         getServer().getPluginManager().registerEvents(new KristallGUI(), this);
         this.getCommand("kristallshop").setExecutor(new KristallGUI());
+
+        PickaxeShop shop = new PickaxeShop();
+        getCommand("pickaxeshop").setExecutor(shop);
+        Bukkit.getPluginManager().registerEvents(shop, this);
+        Bukkit.getPluginManager().registerEvents(new EnchantGUI(), this);
+
+
+
+
 
         PlayerListener.startGrowthTasks(this, growthConfig);
 
