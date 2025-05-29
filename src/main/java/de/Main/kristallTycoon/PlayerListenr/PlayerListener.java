@@ -254,7 +254,14 @@ public class PlayerListener implements Listener {
         if (!player.isSneaking()) return;
 
         Block block = event.getClickedBlock();
-        if (block == null || block.getType() != AMETHYST_CLUSTER) return;
+        if (block == null || (
+                block.getType() != AMETHYST_CLUSTER &&
+                        block.getType() != SMALL_AMETHYST_BUD &&
+                        block.getType() != MEDIUM_AMETHYST_BUD &&
+                        block.getType() != LARGE_AMETHYST_BUD)) {
+            return;
+        }
+
 
         openUpgradeGUI(player, block.getLocation());
     }
