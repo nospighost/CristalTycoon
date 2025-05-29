@@ -1,0 +1,8 @@
+name: KristallTycoon
+version: '1.0-SNAPSHOT'
+main: de.Main.kristallTycoon.KristallTycoon
+api-version: '1.21'
+commands:
+  kristallshop:
+    description: Öffnet den Kristall-Shop
+    usage: /kristallshop
