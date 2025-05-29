@@ -1,4 +1,4 @@
-package de.Main.kristallTycoon;
+package de.Main.kristallTycoon.PlayerListenr;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;

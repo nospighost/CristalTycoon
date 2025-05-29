@@ -1,5 +1,6 @@
-package de.Main.kristallTycoon;
+package de.Main.kristallTycoon.PlayerListenr;
 
+import de.Main.kristallTycoon.KristallTycoon;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.file.FileConfiguration;

@@ -1,5 +1,6 @@
-package de.Main.kristallTycoon;
+package de.Main.kristallTycoon.GUI;
 
+import de.Main.kristallTycoon.KristallTycoon;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;

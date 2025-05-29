@@ -1,6 +1,10 @@
 package de.Main.kristallTycoon;
 
+import de.Main.kristallTycoon.GUI.KristallGUI;
+import de.Main.kristallTycoon.PlayerListenr.PlayerJoinListener;
+import de.Main.kristallTycoon.PlayerListenr.PlayerListener;
 import de.Main.kristallTycoon.WorldGen.VoidGen;
+import de.Main.kristallTycoon.islandCommands.IslandCommand;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
@@ -47,7 +51,7 @@ public class KristallTycoon extends JavaPlugin {
 
 
         //<---------------- Commands ----------------------->
-
+        getCommand("Island").setExecutor(new IslandCommand());
         getServer().getPluginManager().registerEvents(new KristallGUI(), this);
         this.getCommand("kristallshop").setExecutor(new KristallGUI());
 
