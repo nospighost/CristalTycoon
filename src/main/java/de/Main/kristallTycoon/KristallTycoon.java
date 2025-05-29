@@ -41,7 +41,7 @@ public class KristallTycoon extends JavaPlugin {
         if (!growthFile.getParentFile().exists()) {
             growthFile.getParentFile().mkdirs();
         }
-//a
+//aa
         if (!growthFile.exists()) {
             try {
                 growthFile.createNewFile();
